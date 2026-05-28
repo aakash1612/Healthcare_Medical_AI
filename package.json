@@ -1,0 +1,26 @@
+{
+  "name": "explainable-medical-ai",
+  "version": "1.0.0",
+  "description": "Explainable Medical AI System with CNN + Grad-CAM + RAG + LLM",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:python\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:python": "cd python-service && python main.py",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../python-service && pip install -r requirements.txt",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "vite-tsconfig-paths": "^6.1.1"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "chromadb-default-embed": "^2.14.0"
+  }
+}

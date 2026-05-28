@@ -1,0 +1,13 @@
+node_modules/
+dist/
+venv/
+.env
+*.pth
+*.pt
+uploads/
+logs/
+__pycache__/
+*.pyc
+.venv/
+chroma_data/
+data/

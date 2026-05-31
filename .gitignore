@@ -2,7 +2,6 @@ node_modules/
 dist/
 venv/
 .env
-*.pth
 *.pt
 uploads/
 logs/

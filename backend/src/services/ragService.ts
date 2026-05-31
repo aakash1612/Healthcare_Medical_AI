@@ -17,7 +17,9 @@ async function getCollection(): Promise<Collection> {
   `http://${CHROMA_HOST}:${CHROMA_PORT}`;
 
 client = new ChromaClient({
-  path: CHROMA_URL
+  path: CHROMA_URL,
+  tenant: "default_tenant",
+  database: "default_database",
 });
 
   try {

@@ -12,7 +12,13 @@ let collection: Collection;
 async function getCollection(): Promise<Collection> {
   if (collection) return collection;
 
-  client = new ChromaClient({ path: `http://${CHROMA_HOST}:${CHROMA_PORT}` });
+  const CHROMA_URL =
+  process.env.CHROMA_URL ||
+  `http://${CHROMA_HOST}:${CHROMA_PORT}`;
+
+client = new ChromaClient({
+  path: CHROMA_URL
+});
 
   try {
     collection = await client.getOrCreateCollection({

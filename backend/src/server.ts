@@ -149,7 +149,7 @@ async function bootstrap() {
   }
 
   try {
-    await seedMedicalKnowledge();
+    //await seedMedicalKnowledge();
   } catch (err) {
     logger.warn('[RAG] ChromaDB seeding skipped (service may not be running):', err);
   }

@@ -51,11 +51,21 @@ async def run_inference(
     image_bytes = await image.read()
 
     # ── Stage 1: CNN Classification ────────────────────────────────────
+    logger.info("Creating GradCAM engine")
     engine = GradCAMEngine(model, config)
+
+    logger.info("Starting prediction")
     prediction = engine.predict(image_bytes)
 
-    # ── Stage 2: Grad-CAM Heatmap ──────────────────────────────────────
-    gradcam_result = engine.generate_gradcam(image_bytes, prediction["predicted_class"])
+    logger.info("Prediction completed")
+
+    logger.info("Starting GradCAM generation")
+    gradcam_result = engine.generate_gradcam(
+    image_bytes,
+    prediction["predicted_class"]
+)
+
+    logger.info("GradCAM generation completed")
 
     return InferenceResponse(
         prediction={

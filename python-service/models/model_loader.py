@@ -56,9 +56,7 @@ logger.info(f"Using device: {DEVICE}")
 def _build_model(architecture: str, num_classes: int) -> nn.Module:
     """Instantiate a pretrained backbone and replace the classifier head."""
     if architecture == "resnet50":
-        model = models.resnet50(
-        weights=models.ResNet50_Weights.IMAGENET1K_V1
-       )
+        model = models.resnet50(weights=None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif architecture == "efficientnet_b4":

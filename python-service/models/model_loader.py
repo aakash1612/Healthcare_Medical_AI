@@ -90,22 +90,50 @@ class ModelLoader:
         return self.cache[model_id]
 
     def _load(self, model_id: str) -> Tuple[nn.Module, Dict[str, Any]]:
-        config = MODEL_CONFIGS[model_id]
-        num_classes = len(config["classes"])
+    config = MODEL_CONFIGS[model_id]
+    num_classes = len(config["classes"])
 
-        logger.info(f"Loading model: {model_id} ({config['architecture']}, {num_classes} classes)")
-        model = _build_model(config["architecture"], num_classes)
+    logger.info(
+        f"Loading model: {model_id} "
+        f"({config['architecture']}, {num_classes} classes)"
+    )
 
-        weights_path = config["weights_path"]
-        if os.path.exists(weights_path):
-            state_dict = torch.load(weights_path, map_location=DEVICE)
-            model.load_state_dict(state_dict)
-            logger.info(f"Loaded weights from {weights_path}")
-        else:
-            logger.warning(
-                f"Weights not found at {weights_path}. "
-                "Running with random weights (for development only)."
+    weights_path = config["weights_path"]
+    logger.info(f"Weights path: {weights_path}")
+    logger.info(f"Weights exist: {os.path.exists(weights_path)}")
+
+    logger.info("Building model architecture...")
+    model = _build_model(config["architecture"], num_classes)
+    logger.info("Model architecture built successfully")
+
+    if os.path.exists(weights_path):
+        try:
+            logger.info("Starting torch.load()")
+
+            state_dict = torch.load(
+                weights_path,
+                map_location="cpu"
             )
 
-        model.eval()
-        return model, config
+            logger.info("torch.load() completed")
+
+            logger.info("Loading state_dict into model")
+            model.load_state_dict(state_dict)
+
+            logger.info("state_dict loaded successfully")
+
+        except Exception as e:
+            logger.exception(f"Error loading weights: {e}")
+            raise
+
+    else:
+        logger.warning(
+            f"Weights not found at {weights_path}. "
+            "Running with random weights."
+        )
+
+    model.eval()
+
+    logger.info("Model ready for inference")
+
+    return model, config

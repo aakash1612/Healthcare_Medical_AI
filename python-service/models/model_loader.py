@@ -123,7 +123,7 @@ class ModelLoader:
         logger.info(f"Weights path: {weights_path}")
         logger.info(f"Weights exist: {os.path.exists(weights_path)}")
 
-        if os.path.exists(weights_path):
+        if False and os.path.exists(weights_path):
             size_mb = os.path.getsize(weights_path) / (1024 * 1024)
             logger.info(f"Checkpoint size: {size_mb:.2f} MB")
 

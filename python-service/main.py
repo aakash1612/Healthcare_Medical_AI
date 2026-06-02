@@ -28,14 +28,6 @@ app.add_middleware(
 
 # Singleton loader — keeps models cached in memory
 model_loader = ModelLoader()
-@app.on_event("startup")
-async def startup():
-    logger.info("Preloading xray-pneumonia-v1 model...")
-    try:
-        model_loader.get("xray-pneumonia-v1")
-        logger.info("Model preloaded successfully")
-    except Exception as e:
-        logger.error(f"Failed to preload model: {e}")
 
 @app.get("/health")
 def health():

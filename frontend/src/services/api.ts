@@ -2,7 +2,7 @@ import axios from 'axios';
 import { ModelDefinition, AnalysisResult, ApiResponse } from '../types';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api`,
   timeout: 120_000,
 });
 

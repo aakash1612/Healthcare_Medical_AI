@@ -86,10 +86,10 @@ class GradCAMEngine:
 
     def _register_hooks(self, layer: nn.Module):
         def forward_hook(_, __, output):
-            self._activations = output.detach()
+            self._activations = output
 
         def backward_hook(_, __, grad_output):
-            self._gradients = grad_output[0].detach()
+            self._gradients = grad_output[0]
 
         self._hook_handles.append(layer.register_forward_hook(forward_hook))
         self._hook_handles.append(layer.register_full_backward_hook(backward_hook))
@@ -137,7 +137,7 @@ class GradCAMEngine:
         self.config["normalize_std"],
       )
 
-        tensor = tensor.to(self.device).requires_grad_(True)
+        tensor = tensor.to(self.device)
 
         target_layer = self._get_target_layer()
         self._register_hooks(target_layer)
@@ -154,10 +154,15 @@ class GradCAMEngine:
 
            logger.info("GradCAM Step 4: starting backward pass")
 
-           self.model.zero_grad()
-           logits[0, target_idx].backward()
+           self.model.zero_grad(set_to_none=True)
+
+           torch.autograd.backward(
+           logits[0, target_idx],
+           retain_graph=False
+            )
 
            logger.info("GradCAM Step 5: backward pass completed")
+           del logits
 
            activations = self._activations
            gradients = self._gradients

@@ -127,62 +127,111 @@ class GradCAMEngine:
             "class_scores": class_scores,
         }
 
-    def generate_gradcam(self, image_bytes: bytes, target_class: str) -> Dict[str, Any]:
-        tensor, original_np = _preprocess(
-            image_bytes,
-            self.config["input_size"],
-            self.config["normalize_mean"],
-            self.config["normalize_std"],
+def generate_gradcam(self, image_bytes: bytes, target_class: str) -> Dict[str, Any]:
+    logger.info("GradCAM Step 1: preprocessing image")
+
+    tensor, original_np = _preprocess(
+        image_bytes,
+        self.config["input_size"],
+        self.config["normalize_mean"],
+        self.config["normalize_std"],
+    )
+
+    tensor = tensor.to(self.device).requires_grad_(True)
+
+    target_layer = self._get_target_layer()
+    self._register_hooks(target_layer)
+
+    try:
+        logger.info("GradCAM Step 2: starting forward pass")
+
+        logits = self.model(tensor)
+
+        logger.info("GradCAM Step 3: forward pass completed")
+
+        classes = self.config["classes"]
+        target_idx = classes.index(target_class)
+
+        logger.info("GradCAM Step 4: starting backward pass")
+
+        self.model.zero_grad()
+        logits[0, target_idx].backward()
+
+        logger.info("GradCAM Step 5: backward pass completed")
+
+        activations = self._activations
+        gradients = self._gradients
+
+        if activations is None or gradients is None:
+            raise RuntimeError("Hooks did not capture activations/gradients")
+
+        weights = gradients.mean(dim=(2, 3), keepdim=True)
+        cam = F.relu((weights * activations).sum(dim=1)).squeeze(0)
+
+        logger.info("GradCAM Step 6: CAM generated")
+
+        cam = cam.cpu().numpy()
+        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+
+        original_h, original_w = original_np.shape[:2]
+
+        logger.info(
+            f"Original image dimensions: {original_w}x{original_h}"
         )
-        tensor = tensor.to(self.device).requires_grad_(True)
 
-        target_layer = self._get_target_layer()
-        self._register_hooks(target_layer)
+        # Limit output size for Render Free memory constraints
+        MAX_SIZE = 1024
 
-        try:
-            # Forward pass
-            logits = self.model(tensor)
-            classes = self.config["classes"]
-            target_idx = classes.index(target_class)
+        scale = min(MAX_SIZE / max(original_h, original_w), 1.0)
 
-            # Backward pass for target class only
-            self.model.zero_grad()
-            logits[0, target_idx].backward()
+        new_w = int(original_w * scale)
+        new_h = int(original_h * scale)
 
-            # Grad-CAM formula: α_k = (1/Z) Σ_ij (∂y^c / ∂A^k_ij)
-            # L_Grad-CAM = ReLU( Σ_k α_k · A^k )
-            activations = self._activations   # (1, C, H, W)
-            gradients = self._gradients        # (1, C, H, W)
+        logger.info(
+            f"Resized dimensions for GradCAM: {new_w}x{new_h}"
+        )
 
-            if activations is None or gradients is None:
-                raise RuntimeError("Hooks did not capture activations/gradients")
+        original_np = cv2.resize(original_np, (new_w, new_h))
 
-            weights = gradients.mean(dim=(2, 3), keepdim=True)   # (1, C, 1, 1)
-            cam = F.relu((weights * activations).sum(dim=1)).squeeze(0)  # (H, W)
+        cam_resized = cv2.resize(cam, (new_w, new_h))
 
-            # Normalize to [0, 1]
-            cam = cam.cpu().numpy()
-            cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        logger.info("GradCAM Step 7: creating heatmap")
 
-            # Resize CAM to original image dimensions
-            h, w = original_np.shape[:2]
-            cam_resized = cv2.resize(cam, (w, h))
+        heatmap = cv2.applyColorMap(
+            np.uint8(255 * cam_resized),
+            cv2.COLORMAP_JET
+        )
 
-            # Build heatmap (colormap)
-            heatmap = cv2.applyColorMap(np.uint8(255 * cam_resized), cv2.COLORMAP_JET)
-            heatmap_rgb = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+        heatmap_rgb = cv2.cvtColor(
+            heatmap,
+            cv2.COLOR_BGR2RGB
+        )
 
-            # Blend with original
-            original_resized = cv2.resize(original_np, (w, h))
-            overlay = cv2.addWeighted(original_resized, 0.6, heatmap_rgb, 0.4, 0)
+        logger.info("GradCAM Step 8: heatmap created")
 
-            top_regions = _extract_top_regions(cam_resized)
+        overlay = cv2.addWeighted(
+            original_np,
+            0.6,
+            heatmap_rgb,
+            0.4,
+            0
+        )
 
-            return {
-                "heatmap_b64": _tensor_to_b64(heatmap_rgb),
-                "overlay_b64": _tensor_to_b64(overlay),
-                "top_regions": top_regions,
-            }
+        logger.info("GradCAM Step 9: overlay created")
 
-        finally:
-            self._remove_hooks()
+        top_regions = _extract_top_regions(cam_resized)
+
+        logger.info("GradCAM Step 10: encoding images")
+
+        result = {
+            "heatmap_b64": _tensor_to_b64(heatmap_rgb),
+            "overlay_b64": _tensor_to_b64(overlay),
+            "top_regions": top_regions,
+        }
+
+        logger.info("GradCAM Step 11: completed successfully")
+
+        return result
+
+    finally:
+        self._remove_hooks()

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     "xray-pneumonia-v1": {
-        "architecture": "resnet50",
+        "architecture": "resnet18",
         "weights_path": os.path.join(
             os.path.dirname(__file__),
             "weights",
@@ -72,8 +72,8 @@ logger.info(f"Using device: {DEVICE}")
 def _build_model(architecture: str, num_classes: int) -> nn.Module:
     """Instantiate a backbone and replace the classifier head."""
 
-    if architecture == "resnet50":
-        model = models.resnet50(weights=None)
+    if architecture == "resnet18":
+        model = models.resnet18(weights=None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif architecture == "efficientnet_b4":
@@ -123,7 +123,7 @@ class ModelLoader:
         logger.info(f"Weights path: {weights_path}")
         logger.info(f"Weights exist: {os.path.exists(weights_path)}")
 
-        if False and os.path.exists(weights_path):
+        if os.path.exists(weights_path):
             size_mb = os.path.getsize(weights_path) / (1024 * 1024)
             logger.info(f"Checkpoint size: {size_mb:.2f} MB")
 

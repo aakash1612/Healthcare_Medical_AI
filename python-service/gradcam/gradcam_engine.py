@@ -175,7 +175,7 @@ class GradCAMEngine:
 
            logger.info("GradCAM Step 6: CAM generated")
 
-           cam = cam.cpu().numpy()
+           cam = cam.detach().cpu().numpy()
            cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
 
            original_h, original_w = original_np.shape[:2]

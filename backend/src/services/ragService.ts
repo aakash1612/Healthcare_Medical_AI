@@ -1,4 +1,4 @@
-import { ChromaClient, Collection } from 'chromadb';
+import axios from 'axios';
 import { RAGChunk } from '../types';
 import { logger } from '../utils/logger';
 
@@ -7,63 +7,44 @@ const CHROMA_DATABASE = process.env.CHROMA_DATABASE || 'Medical_Chroma_host';
 const CHROMA_TENANT = process.env.CHROMA_TENANT || 'f71c3ca6-7c89-4247-9775-01fdedd2feef';
 const CHROMA_API_KEY = process.env.CHROMA_API_KEY;
 
-let client: ChromaClient;
-let collection: Collection;
+const BASE_URL = 'https://api.trychroma.com/api/v1';
 
-async function getCollection(): Promise<Collection> {
-  if (collection) {
-    logger.info("[RAG] Using cached collection");
-    return collection;
-  }
-
-  logger.info("[RAG] Connecting to Chroma Cloud gateway at api.trychroma.com");
-
-  // 🌟 FIXED FOR TYPESCRIPT COMPILER:
-  // We typecast the configuration object as 'any' so the strict tsc compiler 
-  // allows passing the headers option without failing the production build.
-  const clientConfig: any = {
-    path: "https://api.trychroma.com",
-    database: CHROMA_DATABASE,
-    tenant: CHROMA_TENANT,
-    auth: {
-      provider: "token",
-      credentials: CHROMA_API_KEY,
-    },
-    headers: {
-      "Authorization": `Bearer ${CHROMA_API_KEY}`
-    }
-  };
-
-  client = new ChromaClient(clientConfig);
-
+/**
+ * Helper to get the absolute collection ID from Chroma Cloud via direct REST call
+ */
+async function getCollectionId(): Promise<string> {
+  logger.info(`[RAG] Fetching Collection ID for: ${COLLECTION_NAME}`);
+  
   try {
-    logger.info("[RAG] Connecting to ChromaDB...");
-
-    collection = await client.getOrCreateCollection({
-      name: COLLECTION_NAME,
-      metadata: {
-        description: "Medical journals, textbooks, clinical protocols",
-      },
+    const response = await axios.get(`${BASE_URL}/collections/${COLLECTION_NAME}`, {
+      params: { tenant: CHROMA_TENANT, database: CHROMA_DATABASE },
+      headers: {
+        'Authorization': `Bearer ${CHROMA_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
     });
-
-    logger.info(
-      `[RAG] Connected to ChromaDB collection: ${COLLECTION_NAME}`
-    );
-  } catch (err) {
-    logger.error("[RAG] ChromaDB connection failed:", err);
+    return response.data.id;
+  } catch (err: any) {
+    // If collection doesn't exist yet, automatically create it
+    if (err.response?.status === 404) {
+      logger.info(`[RAG] Collection not found. Creating collection: ${COLLECTION_NAME}`);
+      const createResponse = await axios.post(
+        `${BASE_URL}/collections`,
+        { name: COLLECTION_NAME, metadata: { description: "Medical guidelines" } },
+        {
+          params: { tenant: CHROMA_TENANT, database: CHROMA_DATABASE },
+          headers: { 'Authorization': `Bearer ${CHROMA_API_KEY}`, 'Content-Type': 'application/json' }
+        }
+      );
+      return createResponse.data.id;
+    }
+    logger.error('[RAG] Failed to acquire collection ID via REST:', err.response?.data || err.message);
     throw err;
   }
-
-  return collection;
 }
 
 /**
  * Retrieves relevant medical knowledge chunks for a given condition.
- * The query is enriched with the model's predicted class for precision.
- *
- * @param condition  - e.g. "Pneumonia", "Grade 3 Diabetic Retinopathy"
- * @param modality   - e.g. "xray", "fundus_retina"
- * @param topK       - number of chunks to retrieve
  */
 export async function retrieveMedicalKnowledge(
   condition: string,
@@ -71,73 +52,57 @@ export async function retrieveMedicalKnowledge(
   topK = 5
 ): Promise<RAGChunk[]> {
   try {
-    logger.info(
-      `[RAG] Querying: condition="${condition}", modality="${modality}"`
-    );
-
-    logger.info("[RAG] Step 1 - Getting collection");
-
-    const coll = await getCollection();
-
-    logger.info("[RAG] Step 2 - Collection acquired");
-
-    const queryText =
-      `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
-
+    logger.info(`[RAG] Querying via REST: condition="${condition}", modality="${modality}"`);
+    logger.info("[RAG] Step 1 - Getting collection ID");
+    
+    const collectionId = await getCollectionId();
+    
+    logger.info("[RAG] Step 2 - Collection ID acquired");
+    const queryText = `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
     logger.info(`[RAG] Step 3 - Query text: ${queryText}`);
-
-    logger.info("[RAG] Step 4 - About to call Chroma query");
+    logger.info("[RAG] Step 4 - Running direct REST query to Chroma Cloud");
 
     const start = Date.now();
-
-    const results = await coll.query({
-      queryTexts: [queryText],
-      nResults: topK,
-      where: {
-        modality: modality,
+    const response = await axios.post(
+      `${BASE_URL}/collections/${collectionId}/query`,
+      {
+        query_texts: [queryText],
+        n_results: topK,
+        where: { modality: modality }
       },
-    });
-
-    logger.info(
-      `[RAG] Step 5 - Query completed in ${Date.now() - start}ms`
+      {
+        headers: {
+          'Authorization': `Bearer ${CHROMA_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
     );
 
-    logger.info(
-      `[RAG] Step 6 - Result stats:
-      ids=${results.ids?.[0]?.length ?? 0}
-      docs=${results.documents?.[0]?.length ?? 0}
-      metas=${results.metadatas?.[0]?.length ?? 0}
-      distances=${results.distances?.[0]?.length ?? 0}`
-    );
+    logger.info(`[RAG] Step 5 - Query completed in ${Date.now() - start}ms`);
+    const results = response.data;
 
     if (!results.documents?.[0]) {
       logger.warn("[RAG] Step 7 - No documents returned");
       return [];
     }
 
-    const mapped = results.documents[0].map((doc, i) => ({
+    const mapped = results.documents[0].map((doc: string, i: number) => ({
       id: results.ids[0][i],
       text: doc ?? "",
-      source:
-        (results.metadatas?.[0]?.[i]?.source as string) ??
-        "Medical Literature",
-      relevanceScore: 1 - (results.distances?.[0]?.[i] ?? 0),
+      source: (results.metadatas?.[0]?.[i]?.source as string) ?? "Medical Literature",
+      relevanceScore: results.distances?.[0] ? (1 - results.distances[0][i]) : 1,
     }));
 
-    logger.info(
-      `[RAG] Step 8 - Returning ${mapped.length} chunks`
-    );
-
+    logger.info(`[RAG] Step 8 - Returning ${mapped.length} chunks`);
     return mapped;
-  } catch (error) {
-    logger.error("[RAG] retrieveMedicalKnowledge FAILED:", error);
+  } catch (error: any) {
+    logger.error("[RAG] retrieveMedicalKnowledge FAILED:", error.response?.data || error.message);
     throw error;
   }
 }
 
 /**
- * Ingests a new document into the vector store.
- * Call this when adding new medical textbook chapters or guidelines.
+ * Ingests new documents into the vector store.
  */
 export async function ingestDocument(chunks: {
   id: string;
@@ -145,20 +110,30 @@ export async function ingestDocument(chunks: {
   source: string;
   modality: string;
 }[]): Promise<void> {
-  const coll = await getCollection();
-
-  await coll.upsert({
-    ids: chunks.map((c) => c.id),
-    documents: chunks.map((c) => c.text),
-    metadatas: chunks.map((c) => ({ source: c.source, modality: c.modality })),
-  });
-
-  logger.info(`[RAG] Ingested ${chunks.length} chunks into ChromaDB`);
+  try {
+    const collectionId = await getCollectionId();
+    await axios.post(
+      `${BASE_URL}/collections/${collectionId}/upsert`,
+      {
+        ids: chunks.map((c) => c.id),
+        documents: chunks.map((c) => c.text),
+        metadatas: chunks.map((c) => ({ source: c.source, modality: c.modality })),
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${CHROMA_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    logger.info(`[RAG] Ingested ${chunks.length} chunks directly into Chroma Cloud`);
+  } catch (err: any) {
+    logger.error('[RAG] Direct Ingestion failed:', err.response?.data || err.message);
+  }
 }
 
 /**
  * Seed the vector DB with sample medical knowledge.
- * In production, replace with real PDF/textbook ingestion.
  */
 export async function seedMedicalKnowledge(): Promise<void> {
   const sampleChunks = [

@@ -18,21 +18,30 @@ async function getCollection(): Promise<Collection> {
 
   logger.info("[RAG] Connecting to Chroma Cloud gateway at api.trychroma.com");
 
-  // Initializing with secure Cloud Token Authentication
+  // 1. Create the base client instance
   client = new ChromaClient({
     path: "https://api.trychroma.com",
     database: CHROMA_DATABASE,
-    tenant: CHROMA_TENANT,
-    auth: {
-      provider: "token",
-      credentials: CHROMA_API_KEY,
-    },
+    tenant: CHROMA_TENANT
   });
+
+  // 🌟 THE CRITICAL FIX: Explicitly force the token into the fetch header engine
+  if (CHROMA_API_KEY) {
+    // This injects the key directly into the underlying cross-fetch authorization handler
+    (client as any).api.apiClient.configuration.apiKey = `Bearer ${CHROMA_API_KEY}`;
+    
+    // Fallback block to ensure headers are perfectly covered regardless of SDK sub-version
+    if (!(client as any).headers) {
+      (client as any).headers = {};
+    }
+    (client as any).headers["Authorization"] = `Bearer ${CHROMA_API_KEY}`;
+  } else {
+    logger.error("[RAG] Warning: CHROMA_API_KEY is missing from environment variables!");
+  }
 
   try {
     logger.info("[RAG] Connecting to ChromaDB...");
 
-    // Uses getOrCreateCollection to ensure the cloud database container instantiates cleanly
     collection = await client.getOrCreateCollection({
       name: COLLECTION_NAME,
       metadata: {
@@ -50,7 +59,6 @@ async function getCollection(): Promise<Collection> {
 
   return collection;
 }
-
 /**
  * Retrieves relevant medical knowledge chunks for a given condition.
  * The query is enriched with the model's predicted class for precision.

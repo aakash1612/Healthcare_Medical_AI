@@ -10,28 +10,42 @@ let client: ChromaClient;
 let collection: Collection;
 
 async function getCollection(): Promise<Collection> {
-  if (collection) return collection;
+  if (collection) {
+    logger.info("[RAG] Using cached collection");
+    return collection;
+  }
 
   const CHROMA_URL =
-  process.env.CHROMA_URL ||
-  `http://${CHROMA_HOST}:${CHROMA_PORT}`;
+    process.env.CHROMA_URL ||
+    `http://${CHROMA_HOST}:${CHROMA_PORT}`;
 
-client = new ChromaClient({
-  path: CHROMA_URL,
-  tenant: "default_tenant",
-  database: "default_database",
-});
+  logger.info(`[RAG] Chroma URL: ${CHROMA_URL}`);
+
+  client = new ChromaClient({
+    path: CHROMA_URL,
+    tenant: "default_tenant",
+    database: "default_database",
+  });
 
   try {
+    logger.info("[RAG] Connecting to ChromaDB...");
+
     collection = await client.getOrCreateCollection({
       name: COLLECTION_NAME,
-      metadata: { description: 'Medical journals, textbooks, clinical protocols' },
+      metadata: {
+        description:
+          "Medical journals, textbooks, clinical protocols",
+      },
     });
-    logger.info(`[RAG] Connected to ChromaDB collection: ${COLLECTION_NAME}`);
+
+    logger.info(
+      `[RAG] Connected to ChromaDB collection: ${COLLECTION_NAME}`
+    );
   } catch (err) {
-    logger.error('[RAG] ChromaDB connection failed:', err);
+    logger.error("[RAG] ChromaDB connection failed:", err);
     throw err;
   }
+
   return collection;
 }
 
@@ -48,28 +62,70 @@ export async function retrieveMedicalKnowledge(
   modality: string,
   topK = 5
 ): Promise<RAGChunk[]> {
-  logger.info(`[RAG] Querying: condition="${condition}", modality="${modality}"`);
+  try {
+    logger.info(
+      `[RAG] Querying: condition="${condition}", modality="${modality}"`
+    );
 
-  const coll = await getCollection();
+    logger.info("[RAG] Step 1 - Getting collection");
 
-  const queryText = `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
+    const coll = await getCollection();
 
-  const results = await coll.query({
-    queryTexts: [queryText],
-    nResults: topK,
-    where: { modality: modality },   // filter by imaging type if metadata exists
-  });
+    logger.info("[RAG] Step 2 - Collection acquired");
 
-  if (!results.documents?.[0]) return [];
+    const queryText =
+      `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
 
-  return results.documents[0].map((doc, i) => ({
-    id: results.ids[0][i],
-    text: doc ?? '',
-    source: (results.metadatas?.[0]?.[i]?.source as string) ?? 'Medical Literature',
-    relevanceScore: 1 - (results.distances?.[0]?.[i] ?? 0),
-  }));
+    logger.info(`[RAG] Step 3 - Query text: ${queryText}`);
+
+    logger.info("[RAG] Step 4 - About to call Chroma query");
+
+    const start = Date.now();
+
+    const results = await coll.query({
+      queryTexts: [queryText],
+      nResults: topK,
+      where: {
+        modality: modality,
+      },
+    });
+
+    logger.info(
+      `[RAG] Step 5 - Query completed in ${Date.now() - start}ms`
+    );
+
+    logger.info(
+      `[RAG] Step 6 - Result stats:
+      ids=${results.ids?.[0]?.length ?? 0}
+      docs=${results.documents?.[0]?.length ?? 0}
+      metas=${results.metadatas?.[0]?.length ?? 0}
+      distances=${results.distances?.[0]?.length ?? 0}`
+    );
+
+    if (!results.documents?.[0]) {
+      logger.warn("[RAG] Step 7 - No documents returned");
+      return [];
+    }
+
+    const mapped = results.documents[0].map((doc, i) => ({
+      id: results.ids[0][i],
+      text: doc ?? "",
+      source:
+        (results.metadatas?.[0]?.[i]?.source as string) ??
+        "Medical Literature",
+      relevanceScore: 1 - (results.distances?.[0]?.[i] ?? 0),
+    }));
+
+    logger.info(
+      `[RAG] Step 8 - Returning ${mapped.length} chunks`
+    );
+
+    return mapped;
+  } catch (error) {
+    logger.error("[RAG] retrieveMedicalKnowledge FAILED:", error);
+    throw error;
+  }
 }
-
 /**
  * Ingests a new document into the vector store.
  * Call this when adding new medical textbook chapters or guidelines.

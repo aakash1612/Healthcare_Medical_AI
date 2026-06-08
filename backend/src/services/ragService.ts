@@ -3,8 +3,9 @@ import { RAGChunk } from '../types';
 import { logger } from '../utils/logger';
 
 const COLLECTION_NAME = process.env.CHROMA_COLLECTION_MEDICAL || 'medical_knowledge';
-const CHROMA_HOST = process.env.CHROMA_HOST || 'localhost';
-const CHROMA_PORT = parseInt(process.env.CHROMA_PORT || '8001');
+const CHROMA_DATABASE = process.env.CHROMA_DATABASE || 'Medical_Chroma_host';
+const CHROMA_TENANT = process.env.CHROMA_TENANT || 'f71c3ca6-7c89-4247-9775-01fdedd2feef';
+const CHROMA_API_KEY = process.env.CHROMA_API_KEY;
 
 let client: ChromaClient;
 let collection: Collection;
@@ -15,26 +16,27 @@ async function getCollection(): Promise<Collection> {
     return collection;
   }
 
-  const CHROMA_URL =
-    process.env.CHROMA_URL ||
-    `http://${CHROMA_HOST}:${CHROMA_PORT}`;
+  logger.info("[RAG] Connecting to Chroma Cloud gateway at api.trychroma.com");
 
-  logger.info(`[RAG] Chroma URL: ${CHROMA_URL}`);
-
+  // Initializing with secure Cloud Token Authentication
   client = new ChromaClient({
-    path: CHROMA_URL,
-    tenant: "default_tenant",
-    database: "default_database",
+    path: "https://api.trychroma.com",
+    database: CHROMA_DATABASE,
+    tenant: CHROMA_TENANT,
+    auth: {
+      provider: "token",
+      credentials: CHROMA_API_KEY,
+    },
   });
 
   try {
     logger.info("[RAG] Connecting to ChromaDB...");
 
+    // Uses getOrCreateCollection to ensure the cloud database container instantiates cleanly
     collection = await client.getOrCreateCollection({
       name: COLLECTION_NAME,
       metadata: {
-        description:
-          "Medical journals, textbooks, clinical protocols",
+        description: "Medical journals, textbooks, clinical protocols",
       },
     });
 
@@ -126,6 +128,7 @@ export async function retrieveMedicalKnowledge(
     throw error;
   }
 }
+
 /**
  * Ingests a new document into the vector store.
  * Call this when adding new medical textbook chapters or guidelines.
@@ -179,7 +182,7 @@ export async function seedMedicalKnowledge(): Promise<void> {
     },
     {
       id: 'gradcam-interpretation-001',
-      text: 'Gradient-weighted Class Activation Mapping (Grad-CAM) highlights regions of a radiograph that most influenced the neural network\'s classification decision. High activation areas in the lower lung zones may indicate pneumonic consolidation. Clinicians should correlate AI heatmap findings with clinical presentation.',
+      text: "Gradient-weighted Class Activation Mapping (Grad-CAM) highlights regions of a radiograph that most influenced the neural network's classification decision. High activation areas in the lower lung zones may indicate pneumonic consolidation. Clinicians should correlate AI heatmap findings with clinical presentation.",
       source: 'Radiology: Artificial Intelligence, 2022',
       modality: 'xray',
     },

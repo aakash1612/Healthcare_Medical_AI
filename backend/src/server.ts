@@ -1,6 +1,6 @@
 import express from 'express';
-import http from 'http'; // Cleaned up redundant { Server } import
-import { Server as SocketServer } from 'socket.io'; // Using this clear alias below
+import http from 'http'; 
+import { Server as SocketServer } from 'socket.io'; 
 import cors from 'cors';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -28,7 +28,8 @@ const server = http.createServer(app);
 // ── Socket.io ──────────────────────────────────────────────────────────
 const io = new SocketServer(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    // 🌟 FIXED: Allows your Netlify URL and localhost to bypass CORS production filters
+    origin: [FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -59,8 +60,7 @@ io.on('connection', (socket) => {
 
       const modelDef = getModelById(session.modelId)!;
 
-      // 🌟 FIXED: Convert the strict Mongoose Document to a plain object.
-      // This stops TypeScript from breaking over nested schema typings!
+      // Convert the strict Mongoose Document to a plain object.
       const sessionObj = session.toObject();
 
       const analysisContext = {
@@ -70,7 +70,6 @@ io.on('connection', (socket) => {
           classScores: sessionObj.prediction?.classScores || {},
         },
         gradcam: {
-          // Extracts visual mappings dynamically from the object base layers
           heatmapBase64: (sessionObj as any).gradcamHeatmapPath || '',
           overlayBase64: (sessionObj as any).gradcamOverlayPath || '',
         },
@@ -149,9 +148,11 @@ async function bootstrap() {
   }
 
   try {
-    //await seedMedicalKnowledge();
-  } catch (err) {
-    logger.warn('[RAG] ChromaDB seeding skipped (service may not be running):', err);
+    // 🌟 FIXED: Enabled seeding so your brand-new Chroma Cloud instance is populated on startup
+    await seedMedicalKnowledge();
+    logger.info('[RAG] Chroma Cloud database seeded successfully.');
+  } catch (err: any) {
+    logger.warn('[RAG] ChromaDB seeding skipped or failed:', err.message);
   }
 
   server.listen(PORT, () => {

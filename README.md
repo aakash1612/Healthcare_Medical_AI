@@ -2,7 +2,7 @@
 
 # 🩺 MedAI — Explainable Healthcare AI System
 
-**A production-grade, three-stage pipeline that turns a raw medical scan into a verified, explainable clinical report.**
+**An end-to-end Explainable Healthcare AI platform that transforms medical scans into interpretable AI-assisted clinical reports.**
 
 `Upload Scan` → `CNN + Grad-CAM` → `RAG Retrieval` → `LLM Report` → `Real-time Q&A`
 
@@ -23,6 +23,16 @@
 
 MedAI doesn't just output a diagnosis — it **justifies** it. Every prediction is paired with a visual explanation (Grad-CAM), grounded in real clinical literature (RAG), and explained in plain language (LLM), so a physician can verify the AI's reasoning rather than trust it blindly.
 
+## Project Metrics
+
+- CNN Model: ResNet-50
+- Dataset: Chest X-Ray Pneumonia Dataset
+- Test Accuracy: ~95%
+- Explainability: Grad-CAM
+- Vector Database: ChromaDB
+- LLM: GPT-4o
+- Communication: Socket.io
+  
 <div align="center">
 <img src="screenshots/fullfile.png" alt="MedAI Dashboard — full system overview" width="100%" />
 
@@ -87,7 +97,7 @@ MedAI doesn't just output a diagnosis — it **justifies** it. Every prediction 
 
 ### Real-Time Clinical Q&A
 <div align="center">
-<img src="screenshots/chatbot.png" alt="Clinical Chatbot" width="70%  height = 60%" />
+<img src="screenshots/chatbot.png" alt="Clinical Chatbot" width="70% " />
 <br/><sub><b>Grounded, real-time Q&A about the scan</b></sub>
 </div>
 

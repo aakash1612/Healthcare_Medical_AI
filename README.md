@@ -1,36 +1,95 @@
-# Healthcare Medical AI System
+<div align="center">
 
-> A production-grade, three-stage pipeline that takes a raw medical scan and turns it into a verified, explainable clinical report.
+# 🩺 MedAI — Explainable Healthcare AI System
 
-## Dashboard
- ![Dashboard](screenshots/fullfile.png)
+**A production-grade, three-stage pipeline that turns a raw medical scan into a verified, explainable clinical report.**
 
-## Upload Scan
-![Upload Scan](screenshots/upload.png)
+`Upload Scan` → `CNN + Grad-CAM` → `RAG Retrieval` → `LLM Report` → `Real-time Q&A`
 
-## Pipeline
-![Pipeline](screenshots/pipeline.png)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](#)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](#)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=node.js&logoColor=white)](#)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](#)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](#)
+[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white)](#)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20db-6A4C93?style=flat-square)](#)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](#)
 
-## Grad-CAM Heatmap
-![GradCAM](screenshots/heat-map.png)
+</div>
 
-## Overlay
-![Overlay](screenshots/overlay.png)
+---
 
-## Prediction 
-![Prediction](screenshots/predict.png)
+## Overview
 
-## Report
-![Report](screenshots/report.png)
+MedAI doesn't just output a diagnosis — it **justifies** it. Every prediction is paired with a visual explanation (Grad-CAM), grounded in real clinical literature (RAG), and explained in plain language (LLM), so a physician can verify the AI's reasoning rather than trust it blindly.
 
-## Chatbot
-![Chatbot](screenshots/chatbot.png)
+<div align="center">
+<img src="screenshots/fullfile.png" alt="MedAI Dashboard — full system overview" width="100%" />
 
+<sub><b>The full dashboard:</b> scan upload, pipeline status, Grad-CAM heatmap, prediction confidence, clinical report, and real-time chat — all in one view.</sub>
+</div>
 
+---
 
-```
-Upload Scan → CNN + Grad-CAM → RAG Retrieval → LLM Report → Real-time Q&A
-```
+## How It Works
+
+| Stage | What Happens |
+|---|---|
+| **1. Vision Engine** | A CNN (ResNet-50) classifies the scan, and Grad-CAM highlights *exactly which pixels* drove that decision. |
+| **2. Knowledge Retrieval** | The predicted condition is used to query a vector database (ChromaDB) of medical journals and clinical protocols — no hallucinated advice. |
+| **3. Reporting & Interaction** | An LLM (GPT-4o) synthesizes the CNN output + retrieved literature into a structured report, then answers physician follow-up questions live via Socket.io. |
+
+---
+
+## Screenshots
+
+### Upload → Pipeline
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="screenshots/upload.png" alt="Upload Scan" width="100%" />
+<br/><sub><b>Upload Scan</b></sub>
+</td>
+<td width="50%" align="center">
+<img src="screenshots/pipeline.png" alt="Pipeline Progress" width="100%" />
+<br/><sub><b>Pipeline Progress</b></sub>
+</td>
+</tr>
+</table>
+
+### Grad-CAM Visualization
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="screenshots/heat-map.png" alt="Grad-CAM Heatmap" width="100%" />
+<br/><sub><b>Grad-CAM Heatmap</b></sub>
+</td>
+<td width="50%" align="center">
+<img src="screenshots/overlay.png" alt="Heatmap Overlay" width="100%" />
+<br/><sub><b>Heatmap Overlay</b></sub>
+</td>
+</tr>
+</table>
+
+### Diagnosis → Report
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="screenshots/predict.png" alt="Prediction & Confidence" width="100%" />
+<br/><sub><b>Prediction & Confidence</b></sub>
+</td>
+<td width="50%" align="center">
+<img src="screenshots/report.png" alt="Clinical Report" width="100%" />
+<br/><sub><b>Clinical Report</b></sub>
+</td>
+</tr>
+</table>
+
+### Real-Time Clinical Q&A
+<div align="center">
+<img src="screenshots/chatbot.png" alt="Clinical Chatbot" width="70%" />
+<br/><sub><b>Grounded, real-time Q&A about the scan</b></sub>
+</div>
 
 ---
 
@@ -39,26 +98,40 @@ Upload Scan → CNN + Grad-CAM → RAG Retrieval → LLM Report → Real-time Q&
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        BROWSER (React)                          │
-│  Upload Zone │ Heatmap Viewer │ Report Panel │ Real-time Chat  │
+│  Upload Zone │ Heatmap Viewer │ Report Panel │ Real-time Chat   │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTP + Socket.io
+                            │ HTTP + Socket.io
 ┌──────────────────────────▼──────────────────────────────────────┐
-│                  BACKEND (Express + TypeScript)                  │
+│                  BACKEND (Express + TypeScript)                 │
 │  REST API │ Socket.io │ Model Registry │ Analysis Orchestrator  │
 └──────┬───────────────────┬──────────────────────┬───────────────┘
-       │                   │                      │
-┌──────▼──────┐   ┌────────▼────────┐   ┌────────▼──────────────┐
+       │                   │                       │
+┌──────▼──────┐   ┌────────▼────────┐   ┌──────────▼─────────────┐
 │   MongoDB   │   │    ChromaDB     │   │  Python Service        │
 │  Sessions   │   │  Medical RAG    │   │  FastAPI + PyTorch     │
 │  Chat Hist  │   │  Vector Store   │   │  CNN + Grad-CAM        │
-└─────────────┘   └─────────────────┘   └───────────────────────┘
-                                                    │
-                                         ┌──────────▼──────────┐
-                                         │    OpenAI GPT-4o     │
-                                         │  Report Generation   │
-                                         │  Q&A Grounding       │
-                                         └─────────────────────┘
+└─────────────┘   └─────────────────┘   └───────────┬─────────────┘
+                                                      │
+                                          ┌───────────▼──────────┐
+                                          │    OpenAI GPT-4o      │
+                                          │  Report Generation    │
+                                          │  Q&A Grounding         │
+                                          └───────────────────────┘
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 · TypeScript · Vite · Tailwind CSS |
+| Backend | Express.js · TypeScript · Socket.io |
+| Database | MongoDB (sessions) · ChromaDB (vector store) |
+| AI — Vision | PyTorch · ResNet-50 · Grad-CAM |
+| AI — Retrieval | ChromaDB embeddings (RAG) |
+| AI — Language | OpenAI GPT-4o |
+| Deployment | Docker · Docker Compose |
 
 ---
 
@@ -68,15 +141,13 @@ Upload Scan → CNN + Grad-CAM → RAG Retrieval → LLM Report → Real-time Q&
 - Node.js 20+
 - Python 3.11+
 - MongoDB (local or Atlas)
-- Docker + Docker Compose (optional)
+- Docker + Docker Compose (optional, recommended)
 
 ### 1. Clone & Install
 
 ```bash
 git clone <repo>
 cd explainable-medical-ai
-
-# Install all dependencies
 npm run install:all
 ```
 
@@ -87,11 +158,13 @@ cp backend/.env.example backend/.env
 # Edit backend/.env and add your OPENAI_API_KEY
 ```
 
-### 3. Start Infrastructure (Docker)
+### 3. Start Infrastructure
 
 ```bash
-# Start MongoDB + ChromaDB only
+# MongoDB + ChromaDB via Docker
 docker compose up mongodb chromadb -d
+
+# Or run ChromaDB standalone
 docker run -p 8000:8000 chromadb/chroma
 ```
 
@@ -99,54 +172,52 @@ docker run -p 8000:8000 chromadb/chroma
 
 ```bash
 npm run dev
-# Opens:
-#   Frontend  → http://localhost:5173
-#   Backend   → http://localhost:5000
-#   Python    → http://localhost:8000
 ```
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:5000 |
+| Python Inference | http://localhost:8000 |
 
 ---
 
 ## Training the Model
 
-### Download Dataset
-1. Go to: https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
-2. Download and extract to `python-service/data/chest_xray/`
+### 1. Download the Dataset
+Get the [Chest X-Ray Pneumonia dataset](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) and extract it to `python-service/data/chest_xray/`:
 
-Expected structure:
 ```
 data/chest_xray/
-  train/
-    NORMAL/
-    PNEUMONIA/
-  val/
-    NORMAL/
-    PNEUMONIA/
-  test/
-    NORMAL/
-    PNEUMONIA/
+├── train/
+│   ├── NORMAL/
+│   └── PNEUMONIA/
+├── val/
+│   ├── NORMAL/
+│   └── PNEUMONIA/
+└── test/
+    ├── NORMAL/
+    └── PNEUMONIA/
 ```
 
-### Train
+### 2. Train
 
 ```bash
 cd python-service
 pip install -r requirements.txt
 python train_xray.py --data_dir ./data/chest_xray --epochs 10
-# Saves weights to: python-service/weights/xray_pneumonia_resnet50.pth
 ```
 
-Expected accuracy: **~94–96%** on test set.
+Weights are saved to `python-service/weights/xray_pneumonia_resnet50.pth`.
+**Expected test accuracy: ~94–96%**
 
 ---
 
-## Adding a New Model
+## Extending With New Models
 
-This system is designed to be extended. To add a new model (e.g. diabetic retinopathy):
+The system is built to scale beyond X-rays. Adding a new model (e.g. diabetic retinopathy, histopathology) takes three steps:
 
-### 1. Python service — `model_loader.py`
-
-Set `isActive: true` for `fundus-retinopathy-v1` and add weights:
+**1. Python service** — `model_loader.py`
 ```python
 "fundus-retinopathy-v1": {
     "architecture": "efficientnet_b4",
@@ -155,20 +226,16 @@ Set `isActive: true` for `fundus-retinopathy-v1` and add weights:
 }
 ```
 
-### 2. Backend — `modelRegistry.ts`
-
-Set `isActive: true`:
+**2. Backend** — `modelRegistry.ts`
 ```typescript
 {
   id: 'fundus-retinopathy-v1',
-  isActive: true,   // ← flip this
+  isActive: true,   // ← flip this on
   ...
 }
 ```
 
-### 3. RAG — `ragService.ts`
-
-Add domain-specific knowledge chunks:
+**3. RAG knowledge base** — `ragService.ts`
 ```typescript
 {
   id: 'dr-grading-001',
@@ -178,21 +245,7 @@ Add domain-specific knowledge chunks:
 }
 ```
 
-That's it. The model selector, pipeline, and chat automatically pick it up.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18 + TypeScript + Vite + Tailwind |
-| Backend | Express.js + TypeScript + Socket.io |
-| Database | MongoDB (sessions) + ChromaDB (vectors) |
-| AI — Vision | PyTorch ResNet-50 + Grad-CAM |
-| AI — RAG | ChromaDB embeddings |
-| AI — LLM | OpenAI GPT-4o |
-| Deployment | Docker + Docker Compose |
+The model selector, pipeline, and chat all pick it up automatically — no other code changes required.
 
 ---
 
@@ -200,31 +253,32 @@ That's it. The model selector, pipeline, and chat automatically pick it up.
 
 ```
 explainable-medical-ai/
-├── backend/                  # Express + TypeScript API
+├── backend/                       # Express + TypeScript API
 │   └── src/
-│       ├── types/            # Shared type definitions
-│       ├── models/           # Mongoose schemas + Model Registry
-│       ├── services/         # Business logic
-│       │   ├── analysisService.ts    # Pipeline orchestrator
-│       │   ├── pythonBridge.ts       # CNN inference proxy
-│       │   ├── ragService.ts         # ChromaDB retrieval
-│       │   └── llmService.ts         # GPT-4o report + chat
-│       ├── controllers/      # Route handlers
-│       ├── routes/           # Express router
-│       └── server.ts         # App entry + Socket.io
-├── frontend/                 # React dashboard
+│       ├── types/                 # Shared type definitions
+│       ├── models/                # Mongoose schemas + Model Registry
+│       ├── services/
+│       │   ├── analysisService.ts     # Pipeline orchestrator
+│       │   ├── pythonBridge.ts        # CNN inference proxy
+│       │   ├── ragService.ts          # ChromaDB retrieval
+│       │   └── llmService.ts          # GPT-4o report + chat
+│       ├── controllers/           # Route handlers
+│       ├── routes/                # Express router
+│       └── server.ts              # App entry + Socket.io
+├── frontend/                      # React dashboard
 │   └── src/
-│       ├── components/       # UI components
-│       ├── pages/            # Dashboard page
-│       ├── hooks/            # useAnalysis hook
-│       ├── services/         # API + Socket clients
-│       └── types/            # Frontend types
-├── python-service/           # FastAPI inference service
-│   ├── models/               # Model loader + registry
-│   ├── gradcam/              # Grad-CAM implementation
-│   ├── main.py               # FastAPI app
-│   ├── train_xray.py         # Training script
+│       ├── components/            # UI components
+│       ├── pages/                 # Dashboard page
+│       ├── hooks/                 # useAnalysis hook
+│       ├── services/              # API + Socket clients
+│       └── types/                 # Frontend types
+├── python-service/                # FastAPI inference service
+│   ├── models/                    # Model loader + registry
+│   ├── gradcam/                   # Grad-CAM implementation
+│   ├── main.py                    # FastAPI app
+│   ├── train_xray.py              # Training script
 │   └── requirements.txt
+├── screenshots/                   # README assets
 └── docker-compose.yml
 ```
 
@@ -232,29 +286,30 @@ explainable-medical-ai/
 
 ## API Reference
 
-### POST `/api/analysis/upload`
+#### `POST /api/analysis/upload`
 Upload a medical image and start analysis.
-```json
-Body: FormData { image: File, modelId: string }
+```jsonc
+Body:    FormData { image: File, modelId: string }
 Returns: 202 { message, data: { modelId, fileName } }
 ```
 
-### GET `/api/analysis/:sessionId`
-Get a completed analysis session.
+#### `GET /api/analysis/:sessionId`
+Retrieve a completed analysis session.
 
-### POST `/api/analysis/:sessionId/chat`
-Ask a follow-up question.
-```json
-Body: { question: string }
+#### `POST /api/analysis/:sessionId/chat`
+Ask a follow-up question about a scan.
+```jsonc
+Body:    { question: string }
 Returns: { answer: string, sources: RAGChunk[] }
 ```
 
-### GET `/api/models`
-List all models (active + inactive).
+#### `GET /api/models`
+List all registered models (active + inactive).
 
 ### WebSocket Events
+
 | Event | Direction | Payload |
-|-------|-----------|---------|
+|---|---|---|
 | `join:session` | Client → Server | `sessionId` |
 | `analysis:progress` | Server → Client | `{ status, message, percent }` |
 | `analysis:complete` | Server → Client | `AnalysisResult` |
@@ -265,4 +320,10 @@ List all models (active + inactive).
 
 ## Disclaimer
 
-This system is a research and educational tool. All AI-generated analyses must be reviewed by qualified medical professionals before any clinical use.
+This system is a research and educational tool. All AI-generated analyses **must be reviewed by a qualified medical professional** before any clinical use. It is not a certified diagnostic device.
+
+---
+
+<div align="center">
+<sub>Built with React, Express, FastAPI, PyTorch, and OpenAI.</sub>
+</div>

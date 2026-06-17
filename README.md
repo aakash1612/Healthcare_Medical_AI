@@ -66,6 +66,7 @@ cp backend/.env.example backend/.env
 ```bash
 # Start MongoDB + ChromaDB only
 docker compose up mongodb chromadb -d
+docker run -p 8000:8000 chromadb/chroma
 ```
 
 ### 4. Start All Services

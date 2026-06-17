@@ -1,108 +1,70 @@
-import axios from 'axios';
+import { ChromaClient, Collection } from 'chromadb';
 import { RAGChunk } from '../types';
 import { logger } from '../utils/logger';
 
 const COLLECTION_NAME = process.env.CHROMA_COLLECTION_MEDICAL || 'medical_knowledge';
-const CHROMA_DATABASE = process.env.CHROMA_DATABASE || 'Medical_Chroma_host';
-const CHROMA_TENANT = process.env.CHROMA_TENANT || 'f71c3ca6-7c89-4247-9775-01fdedd2feef';
-const CHROMA_API_KEY = process.env.CHROMA_API_KEY;
+const CHROMA_HOST = process.env.CHROMA_HOST || 'localhost';
+const CHROMA_PORT = parseInt(process.env.CHROMA_PORT || '8001');
 
-const BASE_URL = 'https://api.trychroma.com/api/v1';
+let client: ChromaClient;
+let collection: Collection;
 
-/**
- * Helper to get the absolute collection ID from Chroma Cloud via direct REST call
- */
-async function getCollectionId(): Promise<string> {
-  logger.info(`[RAG] Fetching Collection ID for: ${COLLECTION_NAME}`);
-  
+async function getCollection(): Promise<Collection> {
+  if (collection) return collection;
+
+  client = new ChromaClient({ path: `http://${CHROMA_HOST}:${CHROMA_PORT}` });
+
   try {
-    const response = await axios.get(`${BASE_URL}/collections/${COLLECTION_NAME}`, {
-      params: { tenant: CHROMA_TENANT, database: CHROMA_DATABASE },
-      headers: {
-        'Authorization': `Bearer ${CHROMA_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
+    collection = await client.getOrCreateCollection({
+      name: COLLECTION_NAME,
+      metadata: { description: 'Medical journals, textbooks, clinical protocols' },
     });
-    return response.data.id;
-  } catch (err: any) {
-    // If collection doesn't exist yet, automatically create it
-    if (err.response?.status === 404) {
-      logger.info(`[RAG] Collection not found. Creating collection: ${COLLECTION_NAME}`);
-      const createResponse = await axios.post(
-        `${BASE_URL}/collections`,
-        { name: COLLECTION_NAME, metadata: { description: "Medical guidelines" } },
-        {
-          params: { tenant: CHROMA_TENANT, database: CHROMA_DATABASE },
-          headers: { 'Authorization': `Bearer ${CHROMA_API_KEY}`, 'Content-Type': 'application/json' }
-        }
-      );
-      return createResponse.data.id;
-    }
-    logger.error('[RAG] Failed to acquire collection ID via REST:', err.response?.data || err.message);
+    logger.info(`[RAG] Connected to ChromaDB collection: ${COLLECTION_NAME}`);
+  } catch (err) {
+    logger.error('[RAG] ChromaDB connection failed:', err);
     throw err;
   }
+  return collection;
 }
 
 /**
  * Retrieves relevant medical knowledge chunks for a given condition.
+ * The query is enriched with the model's predicted class for precision.
+ *
+ * @param condition  - e.g. "Pneumonia", "Grade 3 Diabetic Retinopathy"
+ * @param modality   - e.g. "xray", "fundus_retina"
+ * @param topK       - number of chunks to retrieve
  */
 export async function retrieveMedicalKnowledge(
   condition: string,
   modality: string,
   topK = 5
 ): Promise<RAGChunk[]> {
-  try {
-    logger.info(`[RAG] Querying via REST: condition="${condition}", modality="${modality}"`);
-    logger.info("[RAG] Step 1 - Getting collection ID");
-    
-    const collectionId = await getCollectionId();
-    
-    logger.info("[RAG] Step 2 - Collection ID acquired");
-    const queryText = `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
-    logger.info(`[RAG] Step 3 - Query text: ${queryText}`);
-    logger.info("[RAG] Step 4 - Running direct REST query to Chroma Cloud");
+  logger.info(`[RAG] Querying: condition="${condition}", modality="${modality}"`);
 
-    const start = Date.now();
-    const response = await axios.post(
-      `${BASE_URL}/collections/${collectionId}/query`,
-      {
-        query_texts: [queryText],
-        n_results: topK,
-        where: { modality: modality }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${CHROMA_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+  const coll = await getCollection();
 
-    logger.info(`[RAG] Step 5 - Query completed in ${Date.now() - start}ms`);
-    const results = response.data;
+  const queryText = `${condition} ${modality} diagnosis symptoms treatment clinical protocol`;
 
-    if (!results.documents?.[0]) {
-      logger.warn("[RAG] Step 7 - No documents returned");
-      return [];
-    }
+  const results = await coll.query({
+    queryTexts: [queryText],
+    nResults: topK,
+    where: { modality: modality },   // filter by imaging type if metadata exists
+  });
 
-    const mapped = results.documents[0].map((doc: string, i: number) => ({
-      id: results.ids[0][i],
-      text: doc ?? "",
-      source: (results.metadatas?.[0]?.[i]?.source as string) ?? "Medical Literature",
-      relevanceScore: results.distances?.[0] ? (1 - results.distances[0][i]) : 1,
-    }));
+  if (!results.documents?.[0]) return [];
 
-    logger.info(`[RAG] Step 8 - Returning ${mapped.length} chunks`);
-    return mapped;
-  } catch (error: any) {
-    logger.error("[RAG] retrieveMedicalKnowledge FAILED:", error.response?.data || error.message);
-    throw error;
-  }
+  return results.documents[0].map((doc, i) => ({
+    id: results.ids[0][i],
+    text: doc ?? '',
+    source: (results.metadatas?.[0]?.[i]?.source as string) ?? 'Medical Literature',
+    relevanceScore: 1 - (results.distances?.[0]?.[i] ?? 0),
+  }));
 }
 
 /**
- * Ingests new documents into the vector store.
+ * Ingests a new document into the vector store.
+ * Call this when adding new medical textbook chapters or guidelines.
  */
 export async function ingestDocument(chunks: {
   id: string;
@@ -110,30 +72,20 @@ export async function ingestDocument(chunks: {
   source: string;
   modality: string;
 }[]): Promise<void> {
-  try {
-    const collectionId = await getCollectionId();
-    await axios.post(
-      `${BASE_URL}/collections/${collectionId}/upsert`,
-      {
-        ids: chunks.map((c) => c.id),
-        documents: chunks.map((c) => c.text),
-        metadatas: chunks.map((c) => ({ source: c.source, modality: c.modality })),
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${CHROMA_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    logger.info(`[RAG] Ingested ${chunks.length} chunks directly into Chroma Cloud`);
-  } catch (err: any) {
-    logger.error('[RAG] Direct Ingestion failed:', err.response?.data || err.message);
-  }
+  const coll = await getCollection();
+
+  await coll.upsert({
+    ids: chunks.map((c) => c.id),
+    documents: chunks.map((c) => c.text),
+    metadatas: chunks.map((c) => ({ source: c.source, modality: c.modality })),
+  });
+
+  logger.info(`[RAG] Ingested ${chunks.length} chunks into ChromaDB`);
 }
 
 /**
  * Seed the vector DB with sample medical knowledge.
+ * In production, replace with real PDF/textbook ingestion.
  */
 export async function seedMedicalKnowledge(): Promise<void> {
   const sampleChunks = [
@@ -163,7 +115,7 @@ export async function seedMedicalKnowledge(): Promise<void> {
     },
     {
       id: 'gradcam-interpretation-001',
-      text: "Gradient-weighted Class Activation Mapping (Grad-CAM) highlights regions of a radiograph that most influenced the neural network's classification decision. High activation areas in the lower lung zones may indicate pneumonic consolidation. Clinicians should correlate AI heatmap findings with clinical presentation.",
+      text: 'Gradient-weighted Class Activation Mapping (Grad-CAM) highlights regions of a radiograph that most influenced the neural network\'s classification decision. High activation areas in the lower lung zones may indicate pneumonic consolidation. Clinicians should correlate AI heatmap findings with clinical presentation.',
       source: 'Radiology: Artificial Intelligence, 2022',
       modality: 'xray',
     },

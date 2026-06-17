@@ -2,8 +2,31 @@
 
 > A production-grade, three-stage pipeline that takes a raw medical scan and turns it into a verified, explainable clinical report.
 
- ## Dashboard
+## Dashboard
  ![Dashboard](screenshots/fullfile.png)
+
+## Upload Scan
+![Upload Scan](screenshots/upload.png)
+
+## Pipeline
+![Pipeline](screenshots/pipeline.png)
+
+## Grad-CAM Heatmap
+![GradCAM](screenshots/heat-map.png)
+
+## Overlay
+![Overlay](screenshots/overlay.png)
+
+## Prediction 
+![Prediction](screenshots/predict.png)
+
+## Report
+![Report](screenshots/report.png)
+
+## Chatbot
+![Chatbot](screenshots/chatbot.png)
+
+
 
 ```
 Upload Scan → CNN + Grad-CAM → RAG Retrieval → LLM Report → Real-time Q&A

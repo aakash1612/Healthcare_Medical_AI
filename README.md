@@ -87,7 +87,7 @@ MedAI doesn't just output a diagnosis — it **justifies** it. Every prediction 
 
 ### Real-Time Clinical Q&A
 <div align="center">
-<img src="screenshots/chatbot.png" alt="Clinical Chatbot" width="70%" />
+<img src="screenshots/chatbot.png" alt="Clinical Chatbot" width="70%  height = 60%" />
 <br/><sub><b>Grounded, real-time Q&A about the scan</b></sub>
 </div>
 

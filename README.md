@@ -156,7 +156,7 @@ MedAI doesn't just output a diagnosis — it **justifies** it. Every prediction 
 ### 1. Clone & Install
 
 ```bash
-git clone <repo>
+git clone https://github.com/aakash1612/Healthcare_Medical_AI
 cd explainable-medical-ai
 npm run install:all
 ```
@@ -177,8 +177,14 @@ docker compose up mongodb chromadb -d
 # Or run ChromaDB standalone
 docker run -p 8000:8000 chromadb/chroma
 ```
+### 4. Start python service
 
-### 4. Start All Services
+```bash
+cd python-service
+python main.py
+```
+
+### 5. Start All Services
 
 ```bash
 npm run dev

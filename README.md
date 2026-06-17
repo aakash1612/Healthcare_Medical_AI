@@ -1,6 +1,9 @@
-# MedAI — Explainable Medical AI System
+# Healthcare Medical AI System
 
 > A production-grade, three-stage pipeline that takes a raw medical scan and turns it into a verified, explainable clinical report.
+>
+> ## Dashboard
+> [screenshots/fullfile.png]
 
 ```
 Upload Scan → CNN + Grad-CAM → RAG Retrieval → LLM Report → Real-time Q&A

@@ -194,7 +194,7 @@ npm run dev
 |---|---|
 | Frontend | http://localhost:5173 |
 | Backend | http://localhost:5000 |
-| Python Inference | http://localhost:8000 |
+| Python Inference | http://localhost:8010 |
 
 ---
 
